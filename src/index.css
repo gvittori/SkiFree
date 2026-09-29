@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .font-pixel {
+    font-family: 'Press Start 2P', monospace, monospace;
+    letter-spacing: -0.05em;
+  }
+
+  .pixel-border {
+    border: 3px solid #000000;
+  }
+
+  .pixel-shadow {
+    box-shadow: 4px 4px 0px #000000;
+  }
+
+  .pixel-panel {
+    background-color: #c0c0c0;
+    color: #000000;
+    border: 3px solid #000000;
+    box-shadow: inset 2px 2px 0px #ffffff, inset -2px -2px 0px #707070, 4px 4px 0px rgba(0, 0, 0, 0.9);
+  }
+
+  .pixel-titlebar {
+    background: #000080;
+    color: #ffffff;
+    padding: 6px 10px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    border-bottom: 2px solid #000000;
+  }
+
+  .pixel-btn {
+    background-color: #c0c0c0;
+    color: #000000;
+    border: 2px solid #000000;
+    box-shadow: inset 2px 2px 0px #ffffff, inset -2px -2px 0px #505050;
+    image-rendering: pixelated;
+    user-select: none;
+    transition: transform 0.05s ease;
+  }
+
+  .pixel-btn:active {
+    box-shadow: inset 2px 2px 0px #303030, inset -1px -1px 0px #ffffff;
+    transform: translate(2px, 2px);
+  }
+
+  .pixel-btn-primary {
+    background-color: #000080;
+    color: #ffffff;
+    border: 2px solid #000000;
+    box-shadow: inset 2px 2px 0px #3366ff, inset -2px -2px 0px #000040;
+  }
+
+  .pixel-btn-primary:active {
+    box-shadow: inset 2px 2px 0px #000030, inset -1px -1px 0px #3366ff;
+    transform: translate(2px, 2px);
+  }
+
+  .pixel-btn-action {
+    background-color: #008080;
+    color: #ffffff;
+    border: 2px solid #000000;
+    box-shadow: inset 2px 2px 0px #00ffff, inset -2px -2px 0px #004040;
+  }
+
+  .pixel-btn-action:active {
+    box-shadow: inset 2px 2px 0px #003030, inset -1px -1px 0px #00ffff;
+    transform: translate(2px, 2px);
+  }
+
+  .pixel-btn-yellow {
+    background-color: #e6b800;
+    color: #000000;
+    border: 2px solid #000000;
+    box-shadow: inset 2px 2px 0px #fff280, inset -2px -2px 0px #665200;
+  }
+
+  .pixel-btn-yellow:active {
+    box-shadow: inset 2px 2px 0px #4d3d00, inset -1px -1px 0px #fff280;
+    transform: translate(2px, 2px);
+  }
+
+  .pixel-btn-red {
+    background-color: #c00000;
+    color: #ffffff;
+    border: 2px solid #000000;
+    box-shadow: inset 2px 2px 0px #ff6666, inset -2px -2px 0px #600000;
+  }
+
+  .pixel-btn-red:active {
+    box-shadow: inset 2px 2px 0px #400000, inset -1px -1px 0px #ff6666;
+    transform: translate(2px, 2px);
+  }
+
+  .pixel-inset {
+    background-color: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+    box-shadow: inset 2px 2px 0px #808080, inset -1px -1px 0px #dfdfdf;
+  }
+
+  .pixel-badge {
+    background-color: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+    box-shadow: 2px 2px 0px #000000;
+  }
+}
+
+* {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}

@@ -1,0 +1,6 @@
+{
+  "name": "SkiFree Retro",
+  "description": "Retro pixel-art SkiFree clone with mobile touch controls, offline leaderboard, trick jumps, and progressive mountain speed.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
