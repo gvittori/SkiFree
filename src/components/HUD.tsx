@@ -13,6 +13,7 @@ interface HUDProps {
   highScore: number;
   isPaused: boolean;
   isGameStarted?: boolean;
+  isSprinting?: boolean;
   onTogglePause: () => void;
   onOpenLeaderboard: () => void;
 }
@@ -24,6 +25,7 @@ export const HUD: React.FC<HUDProps> = ({
   highScore,
   isPaused,
   isGameStarted = true,
+  isSprinting = false,
   onTogglePause,
   onOpenLeaderboard,
 }) => {
@@ -59,10 +61,12 @@ export const HUD: React.FC<HUDProps> = ({
           </div>
 
           {/* Speed */}
-          <div className="pixel-inset px-2 py-1 flex items-center gap-1 bg-white">
+          <div className={`pixel-inset px-2 py-1 flex items-center gap-1 ${isSprinting ? 'bg-amber-100 ring-1 ring-amber-400' : 'bg-white'}`}>
             <div className="flex flex-col">
-              <span className="text-[7px] text-slate-500 font-bold leading-none">SPD</span>
-              <span className="text-[11px] font-bold text-amber-700 leading-tight">
+              <span className="text-[7px] text-slate-500 font-bold leading-none flex items-center gap-0.5">
+                SPD {isSprinting && <span className="text-red-600 font-black">⚡</span>}
+              </span>
+              <span className={`text-[11px] font-bold leading-tight ${isSprinting ? 'text-red-700 animate-pulse font-black' : 'text-amber-700'}`}>
                 {Math.round(speed * 8)}
               </span>
             </div>

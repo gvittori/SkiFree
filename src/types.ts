@@ -112,6 +112,8 @@ export interface BloodStain {
   size: number;
   color: string;
   opacity: number;
+  life: number;
+  maxLife: number;
 }
 
 export interface FloatingText {
@@ -155,6 +157,7 @@ export interface GameState {
   preJumpDirectionX?: number;
   speed: number;
   baseSpeed: number;
+  isSprinting: boolean;
   
   // Game lifecycle
   isRunning: boolean;

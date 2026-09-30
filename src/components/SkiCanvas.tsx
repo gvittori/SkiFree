@@ -97,12 +97,21 @@ export const SkiCanvas: React.FC<SkiCanvasProps> = ({
         }
       }
 
-      // 2b. Blood splatter stains painting the snow red until they leave the screen
+      // 2b. Blood splatter stains painting the snow red that fade away after a couple of seconds
       if (engine.state.bloodStains && engine.state.bloodStains.length > 0) {
+        let currentAlpha = 1.0;
         for (const stain of engine.state.bloodStains) {
           const bx = screenCenterX + (stain.x - engine.state.skierX);
           const by = screenSkierY + (stain.y - engine.state.skierY);
           if (by >= -30 && by <= height + 30 && bx >= -30 && bx <= width + 30) {
+            const alpha = Math.max(0, Math.min(1, stain.opacity ?? 1));
+            if (alpha <= 0.01) continue;
+
+            if (Math.abs(currentAlpha - alpha) > 0.02) {
+              ctx.globalAlpha = alpha;
+              currentAlpha = alpha;
+            }
+
             ctx.fillStyle = stain.color;
             const sz = stain.size;
             ctx.fillRect(Math.floor(bx), Math.floor(by), sz, sz);
@@ -116,6 +125,9 @@ export const SkiCanvas: React.FC<SkiCanvasProps> = ({
               ctx.fillRect(Math.floor(bx) + 1, Math.floor(by) + 1, sz - 2, sz - 2);
             }
           }
+        }
+        if (currentAlpha !== 1.0) {
+          ctx.globalAlpha = 1.0;
         }
       }
 

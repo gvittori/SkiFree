@@ -111,9 +111,14 @@ export default function App() {
       } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
         e.preventDefault();
         engine.steerDown();
-      } else if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'w' || e.key === 'W') {
+      } else if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'w' || e.key === 'W' || e.key === 'Enter') {
         e.preventDefault();
+        if (e.repeat) return;
         engine.actionJumpOrTrick();
+      } else if (e.key === 'Shift' || e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        if (e.repeat) return;
+        engine.toggleSprint();
       } else if (e.key === 'b' || e.key === 'B') {
         e.preventDefault();
         engine.throwSnowball();
@@ -207,6 +212,7 @@ export default function App() {
           highScore={highScore}
           isPaused={isPaused}
           isGameStarted={isGameStarted}
+          isSprinting={engine.state.isSprinting}
           onTogglePause={handleTogglePause}
           onOpenLeaderboard={handleOpenLeaderboard}
         />
@@ -223,9 +229,12 @@ export default function App() {
         {isGameStarted && !isPaused && (
           <TouchControls
             isAirborne={engine.state.isAirborne}
+            isDown={engine.state.stance === 'CRASH'}
+            isSprinting={engine.state.isSprinting}
             onSteerLeft={() => engine.steerLeft()}
             onSteerRight={() => engine.steerRight()}
             onJumpOrTrick={() => engine.actionJumpOrTrick()}
+            onToggleSprint={() => engine.toggleSprint()}
           />
         )}
 
@@ -281,6 +290,10 @@ export default function App() {
                   <div className="flex items-start gap-1.5">
                     <span className="text-emerald-600 font-bold">►</span>
                     <span>Tap <b>TRICK</b> mid-air for bonus points</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-amber-500 font-bold">►</span>
+                    <span>Toggle <b>SPRINT</b> for 150 km/h turbo boost (Shift/F)</span>
                   </div>
                   <div className="flex items-start gap-1.5">
                     <span className="text-red-600 font-bold">►</span>

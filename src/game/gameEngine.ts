@@ -31,6 +31,8 @@ export class GameEngine {
   private nextTextId: number = 1;
   private lastObstacleSpawnY: number = 0;
   private animTick: number = 0;
+  private jumpCooldownTimer: number = 0;
+  private turnCooldownTimer: number = 0;
   private onGameOverCallback?: (finalScore: number, distance: number, maxSpeed: number, tricks: number) => void;
 
   constructor(canvasWidth: number = 400, canvasHeight: number = 700) {
@@ -61,6 +63,7 @@ export class GameEngine {
       targetDirectionX: 0,
       speed: 0,
       baseSpeed: 4.5,
+      isSprinting: false,
 
       isRunning: false,
       isPaused: false,
@@ -109,9 +112,36 @@ export class GameEngine {
 
   public reset(autoStart: boolean = false) {
     this.state = this.createInitialState();
+    this.jumpCooldownTimer = 0;
+    this.turnCooldownTimer = 0;
     this.seedInitialObstacles();
     if (autoStart) {
       this.start();
+    }
+  }
+
+  public toggleSprint(): boolean {
+    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.stance === 'CRASH') {
+      return false;
+    }
+    this.state.isSprinting = !this.state.isSprinting;
+    sound.playSprint(this.state.isSprinting);
+    if (this.state.isSprinting) {
+      this.addFloatingText('⚡ SPRINT 150 km/h!', '#FFD700');
+    }
+    return this.state.isSprinting;
+  }
+
+  public setSprint(active: boolean) {
+    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.stance === 'CRASH') {
+      return;
+    }
+    if (this.state.isSprinting !== active) {
+      this.state.isSprinting = active;
+      sound.playSprint(active);
+      if (active) {
+        this.addFloatingText('⚡ SPRINT 150 km/h!', '#FFD700');
+      }
     }
   }
 
@@ -210,7 +240,7 @@ export class GameEngine {
    * Steer left command - responsive discrete control
    */
   public steerLeft() {
-    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.crashTimer > 0) return;
+    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.stance === 'CRASH') return;
 
     if (this.state.isAirborne) {
       // Direct air drift
@@ -218,10 +248,33 @@ export class GameEngine {
       return;
     }
 
+    // Steering is slightly slower while sprint is active
+    if (this.state.isSprinting && this.turnCooldownTimer > 0) {
+      return;
+    }
+    if (this.state.isSprinting) {
+      this.turnCooldownTimer = 140; // 140ms steering cooldown while sprinting
+    }
+
+    // When angled all the way left (STAND_LEFT), tapping left slightly moves him in that direction
+    if (this.state.stance === 'STAND_LEFT') {
+      this.state.skierX -= 14;
+      this.state.directionX = -1.35;
+      this.state.speed = 0;
+      sound.playShuffle();
+      this.addCarveParticles(-1);
+      this.checkCollisions();
+      return;
+    }
+
     // Direct, responsive step turning
     switch (this.state.stance) {
-      case 'SKI_FAST_RIGHT':
       case 'STAND_RIGHT':
+        // Turn back towards downhill
+        this.state.stance = 'SKI_FAST_RIGHT';
+        this.state.directionX = 1.1;
+        break;
+      case 'SKI_FAST_RIGHT':
         this.state.stance = 'SKI_RIGHT';
         this.state.directionX = 0.55;
         break;
@@ -239,9 +292,10 @@ export class GameEngine {
         this.state.directionX = -1.1;
         break;
       case 'SKI_FAST_LEFT':
-      case 'STAND_LEFT':
+        // Angled all the way left: stop moving at all!
         this.state.stance = 'STAND_LEFT';
         this.state.directionX = -1.35;
+        this.state.speed = 0;
         break;
       default:
         this.state.stance = 'SKI_LEFT';
@@ -255,7 +309,7 @@ export class GameEngine {
    * Steer right command - responsive discrete control
    */
   public steerRight() {
-    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.crashTimer > 0) return;
+    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.stance === 'CRASH') return;
 
     if (this.state.isAirborne) {
       // Direct air drift
@@ -263,12 +317,35 @@ export class GameEngine {
       return;
     }
 
+    // Steering is slightly slower while sprint is active
+    if (this.state.isSprinting && this.turnCooldownTimer > 0) {
+      return;
+    }
+    if (this.state.isSprinting) {
+      this.turnCooldownTimer = 140; // 140ms steering cooldown while sprinting
+    }
+
+    // When angled all the way right (STAND_RIGHT), tapping right slightly moves him in that direction
+    if (this.state.stance === 'STAND_RIGHT') {
+      this.state.skierX += 14;
+      this.state.directionX = 1.35;
+      this.state.speed = 0;
+      sound.playShuffle();
+      this.addCarveParticles(1);
+      this.checkCollisions();
+      return;
+    }
+
     // Direct, responsive step turning
     switch (this.state.stance) {
-      case 'SKI_FAST_LEFT':
       case 'STAND_LEFT':
+        // Turn back towards downhill
+        this.state.stance = 'SKI_FAST_LEFT';
+        this.state.directionX = -1.1;
+        break;
+      case 'SKI_FAST_LEFT':
         this.state.stance = 'SKI_LEFT';
-        this.state.directionX = -0.55;
+        this.state.directionX = -0.7;
         break;
       case 'SKI_LEFT':
         this.state.stance = 'SKI_DOWN';
@@ -284,9 +361,10 @@ export class GameEngine {
         this.state.directionX = 1.1;
         break;
       case 'SKI_FAST_RIGHT':
-      case 'STAND_RIGHT':
+        // Angled all the way right: stop moving at all!
         this.state.stance = 'STAND_RIGHT';
         this.state.directionX = 1.35;
+        this.state.speed = 0;
         break;
       default:
         this.state.stance = 'SKI_RIGHT';
@@ -300,7 +378,7 @@ export class GameEngine {
    * Straight downhill tuck / speed boost
    */
   public steerDown() {
-    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.crashTimer > 0) return;
+    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.stance === 'CRASH') return;
     if (this.state.isAirborne) return;
 
     this.state.directionX = 0;
@@ -309,11 +387,63 @@ export class GameEngine {
   }
 
   /**
+   * Recover from crash and get back on skis (triggered by tapping Jump/Trick button)
+   * The skier only stands back up and does NOT jump.
+   */
+  public recoverFromCrash() {
+    if (this.state.stance !== 'CRASH') return;
+
+    this.state.stance = 'SKI_DOWN';
+    this.state.directionX = 0;
+    this.state.targetDirectionX = 0;
+    this.state.speed = this.state.baseSpeed;
+    this.state.crashTimer = 0;
+    this.state.isAirborne = false;
+    this.state.skierZ = 0;
+    this.state.vz = 0;
+    // Set 500ms cooldown so the get up action never jumps
+    this.jumpCooldownTimer = 500;
+
+    // Activate 2-second immunity frame (2000 ms) so skier doesn't immediately re-crash
+    this.state.isImmune = true;
+    this.state.immunityTimer = 2000;
+
+    sound.playStandUp();
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(30);
+    }
+
+    // Snow puff particles on getting back up
+    for (let i = 0; i < 12; i++) {
+      this.state.particles.push({
+        x: this.state.skierX + (Math.random() - 0.5) * 16,
+        y: this.state.skierY + (Math.random() - 0.5) * 8,
+        vx: (Math.random() - 0.5) * 3,
+        vy: -Math.random() * 2.5,
+        color: '#FFFFFF',
+        size: 3,
+        life: 0,
+        maxLife: 15,
+        shape: 'pixel',
+      });
+    }
+  }
+
+  /**
    * Jump or Trick Action
-   * (Bottom center button)
+   * (Bottom center button or Space/Up Arrow)
    */
   public actionJumpOrTrick() {
-    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver || this.state.crashTimer > 0) return;
+    if (!this.state.isRunning || this.state.isPaused || this.state.isGameOver) return;
+
+    // When down the skier should only get up after tapping the jump/trick button
+    if (this.state.stance === 'CRASH') {
+      this.recoverFromCrash();
+      return;
+    }
+
+    // Do not jump if in crash cooldown or immediately after recovering from a crash
+    if (this.state.crashTimer > 0 || this.jumpCooldownTimer > 0) return;
 
     if (!this.state.isAirborne) {
       // Launch jump from ground!
@@ -470,6 +600,15 @@ export class GameEngine {
    * Spawn visceral retro blood particles and snow splatters
    */
   public spawnBloodParticles(x: number, y: number, context: 'tree' | 'yeti_grab' | 'yeti_bite' | 'preview') {
+    // Blood particle generation only triggers when skier is not down and also not in immune frames
+    if (context === 'tree') {
+      const isDown = this.state.stance === 'CRASH';
+      const isImmune = this.state.isImmune || this.state.immunityTimer > 0;
+      if (isDown || isImmune) {
+        return;
+      }
+    }
+
     const bloodAmount = this.state.bloodAmount || 5;
 
     // Scale particle count dynamically from 1 to 10 (tripled: 3x volume for all levels)
@@ -528,12 +667,15 @@ export class GameEngine {
     // Paint immediate visceral splatter pools on the snow slope around the impact
     const stainCount = Math.min(36, Math.round(bloodAmount * 3.2));
     for (let i = 0; i < stainCount; i++) {
+      const maxLife = 2000 + Math.random() * 500; // ~2.0 - 2.5s total lifetime before fading away
       this.state.bloodStains.push({
         x: x + (Math.random() - 0.5) * (36 + bloodAmount * 4),
         y: y + (Math.random() - 0.5) * (26 + bloodAmount * 3),
         size: Math.floor(Math.random() * 3 + 2) + Math.floor(sizeBonus * 0.6),
         color: bloodPalette[Math.floor(Math.random() * bloodPalette.length)],
         opacity: 0.95,
+        life: 0,
+        maxLife,
       });
     }
   }
@@ -543,21 +685,17 @@ export class GameEngine {
    * Spawns blood particles if colliding with a tree!
    */
   public triggerCrash(obsType?: ObstacleType) {
-    if (!this.state.isRunning || this.state.isPaused || this.state.isImmune || this.state.crashTimer > 0 || this.state.isGameOver) return;
-
-    this.state.stance = 'CRASH';
-    this.state.crashTimer = 40; // ~0.65s stunned
-    this.state.isAirborne = false;
-    this.state.skierZ = 0;
-    this.state.vz = 0;
-    this.state.directionX = 0;
-    this.state.speed = 1.0;
-
-    sound.playCrash();
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([80, 40, 80]);
+    if (
+      !this.state.isRunning ||
+      this.state.isPaused ||
+      this.state.isGameOver ||
+      this.state.isImmune ||
+      this.state.immunityTimer > 0 ||
+      this.state.stance === 'CRASH' ||
+      this.state.crashTimer > 0
+    ) {
+      return;
     }
-    this.addCrashParticles();
 
     // Check if player collided with a tree (small, large, bare, stump)
     const isTree = obsType && (
@@ -565,29 +703,57 @@ export class GameEngine {
       obsType.startsWith('TREE_')
     );
 
+    // Spawn blood particles while skier is still upright (not down and not immune)
     if (isTree) {
       this.spawnBloodParticles(this.state.skierX, this.state.skierY, 'tree');
     }
+
+    this.state.stance = 'CRASH';
+    this.state.isSprinting = false;
+    this.state.crashTimer = 10; // Brief cooldown before input registers
+    this.state.isAirborne = false;
+    this.state.skierZ = 0;
+    this.state.vz = 0;
+    this.state.directionX = 0;
+    this.state.speed = 0;
+
+    sound.playCrash();
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([80, 40, 80]);
+    }
+    this.addCrashParticles();
   }
 
   /**
    * Main Game Loop Update
    * @param dt Delta time in milliseconds
    */
-  public update(dt: number) {
-    if (!this.state.isRunning || this.state.isPaused) return;
+  public update(dt: number = 16) {
+    if (!this.state.isRunning) return;
+    if (this.state.isPaused) {
+      this.updateEffects(dt);
+      return;
+    }
 
     this.animTick++;
 
-    // 1. Crash recovery and Immunity timer handling
+    // 1. Crash recovery timer & Immunity timer handling
+    // When down the skier stays down and only gets up after player taps the jump/trick button
     if (this.state.crashTimer > 0) {
       this.state.crashTimer--;
-      if (this.state.crashTimer === 0) {
-        // Skier gets back up
-        this.state.stance = 'SKI_DOWN';
-        // Activate 2-second immunity frame (2000 ms)
-        this.state.isImmune = true;
-        this.state.immunityTimer = 2000;
+    }
+
+    if (this.jumpCooldownTimer > 0) {
+      this.jumpCooldownTimer -= dt;
+      if (this.jumpCooldownTimer < 0) {
+        this.jumpCooldownTimer = 0;
+      }
+    }
+
+    if (this.turnCooldownTimer > 0) {
+      this.turnCooldownTimer -= dt;
+      if (this.turnCooldownTimer < 0) {
+        this.turnCooldownTimer = 0;
       }
     }
 
@@ -599,25 +765,27 @@ export class GameEngine {
       }
     }
 
-    // 2. Gameplay speed increases as the skier descends the mountain!
-    // As distance increases, base downhill speed progressively scales up.
-    const distanceKm = this.state.distance / 1000;
-    this.state.baseSpeed = 4.5 + Math.min(6.5, distanceKm * 2.8);
+    // 2. Gameplay speed calculations
+    // - Skier normal max speed is capped at 77 km/h (9.625 physics units).
+    // - Sprint button toggle sets skier speed to 150 km/h (18.75 physics units).
+    const NORMAL_MAX_SPEED_PHYSICS = 77 / 8; // 9.625 (9.625 * 8 = 77 km/h)
+    const SPRINT_SPEED_PHYSICS = 150 / 8; // 18.75 (18.75 * 8 = 150 km/h)
 
     // Stance speed multiplier
     let stanceMultiplier = 1.0;
     switch (this.state.stance) {
       case 'STAND_LEFT':
       case 'STAND_RIGHT':
-        stanceMultiplier = 0.15;
+        // When angled all the way left or right, stop moving at all
+        stanceMultiplier = 0;
         break;
       case 'SKI_LEFT':
       case 'SKI_RIGHT':
-        stanceMultiplier = 0.95;
+        stanceMultiplier = 0.92;
         break;
       case 'SKI_FAST_LEFT':
       case 'SKI_FAST_RIGHT':
-        stanceMultiplier = 0.8;
+        stanceMultiplier = 0.78;
         break;
       case 'SKI_DOWN':
         stanceMultiplier = 1.25;
@@ -626,8 +794,6 @@ export class GameEngine {
         stanceMultiplier = 1.55;
         break;
       case 'CRASH':
-        stanceMultiplier = 0.05;
-        break;
       case 'EATEN':
         stanceMultiplier = 0;
         break;
@@ -635,7 +801,18 @@ export class GameEngine {
         stanceMultiplier = 1.0;
     }
 
-    this.state.speed = this.state.baseSpeed * stanceMultiplier;
+    if (stanceMultiplier === 0) {
+      this.state.speed = 0;
+    } else if (this.state.isSprinting) {
+      // Sprint toggle sets skier speed to 150 km/h
+      this.state.speed = SPRINT_SPEED_PHYSICS;
+    } else {
+      // Normal downhill speed: accelerates with distance, capped at 77 km/h normal max speed
+      const distanceKm = this.state.distance / 1000;
+      this.state.baseSpeed = 5.0 + Math.min(3.5, distanceKm * 2.5);
+      const rawSpeed = this.state.baseSpeed * stanceMultiplier;
+      this.state.speed = Math.min(NORMAL_MAX_SPEED_PHYSICS, rawSpeed);
+    }
 
     // Convert to realistic km/h for the HUD
     const speedKmH = Math.round(this.state.speed * 8);
@@ -644,15 +821,37 @@ export class GameEngine {
     }
 
     // 3. Movement
-    if (!this.state.isGameOver && this.state.stance !== 'CRASH') {
+    const isStopped =
+      this.state.stance === 'STAND_LEFT' ||
+      this.state.stance === 'STAND_RIGHT' ||
+      this.state.stance === 'CRASH';
+
+    if (!this.state.isGameOver && !isStopped && this.state.speed > 0) {
       // Downhill displacement
       const dy = this.state.speed;
       this.state.skierY += dy;
       this.state.distance += Math.round(dy * 0.4);
       this.state.score += Math.round(dy * 0.4);
 
-      // Horizontal displacement (unbounded so player can ski diagonally across the mountain)
-      this.state.skierX += this.state.directionX * (this.state.speed * 0.85);
+      // Horizontal displacement
+      // When sprinting at 150 km/h, lateral steering is slightly slower with heavier forward inertia
+      const lateralDamp = this.state.isSprinting ? 0.45 : 0.85;
+      this.state.skierX += this.state.directionX * (this.state.speed * lateralDamp);
+
+      // High-speed sprint snow spray particles
+      if (this.state.isSprinting && !this.state.isAirborne && this.animTick % 2 === 0) {
+        this.state.particles.push({
+          x: this.state.skierX + (Math.random() - 0.5) * 12,
+          y: this.state.skierY + 6,
+          vx: (Math.random() - 0.5) * 2,
+          vy: -Math.random() * 3 - 1,
+          color: '#FFFFFF',
+          size: 2,
+          life: 0,
+          maxLife: 8,
+          shape: 'pixel',
+        });
+      }
 
       // Leave ski tracks
       if (!this.state.isAirborne && this.animTick % 3 === 0) {
@@ -736,7 +935,7 @@ export class GameEngine {
     this.updateYeti(dt);
 
     // 9. Update Particles & Floating texts
-    this.updateEffects();
+    this.updateEffects(dt);
   }
 
   private updateNPCs() {
@@ -781,7 +980,13 @@ export class GameEngine {
     if (this.state.isAirborne && this.state.skierZ > 16) {
       return;
     }
-    if (this.state.isImmune || this.state.crashTimer > 0 || this.state.isGameOver) {
+    if (
+      this.state.isImmune ||
+      this.state.immunityTimer > 0 ||
+      this.state.stance === 'CRASH' ||
+      this.state.crashTimer > 0 ||
+      this.state.isGameOver
+    ) {
       return;
     }
 
@@ -871,8 +1076,8 @@ export class GameEngine {
       const dy = targetY - yeti.y;
       const dist = Math.hypot(dx, dy);
 
-      // Speed is 1.3x faster than current downhill speed
-      const yetiSpeed = Math.max(7.5, this.state.speed * 1.32);
+      // Yeti chasing speed is 110 km/h (110 / 8 = 13.75 in physics units)
+      const yetiSpeed = 110 / 8; // 13.75
 
       if (dist > 10) {
         yeti.vx = (dx / dist) * (yetiSpeed * 0.85);
@@ -896,6 +1101,7 @@ export class GameEngine {
         } else {
           // Yeti catches the skier! Blood bursts out!
           yeti.state = 'GRABBING';
+          this.state.isSprinting = false;
           this.state.stance = 'EATEN';
           this.state.isGameOver = true;
           yeti.stateTimer = 0;
@@ -952,7 +1158,7 @@ export class GameEngine {
     }
   }
 
-  private updateEffects() {
+  private updateEffects(dt: number = 16) {
     // Particles (with physics gravity and snow blood stains)
     this.state.particles = this.state.particles.filter(p => {
       p.x += p.vx;
@@ -962,26 +1168,32 @@ export class GameEngine {
       }
       p.life++;
 
-      // Blood particles continuously paint the white snow red as they arc and land
-      if (p.isBlood) {
-        // Continuous spray painting as droplets fall
-        if (p.life > 1 && Math.random() < 0.4) {
+      // Blood particles paint the white snow red as they arc and land
+      if (p.isBlood && this.state.bloodStains.length < 160) {
+        // Occasional spray painting as larger droplets fall
+        if (p.life > 1 && p.life % 5 === 0 && Math.random() < 0.25) {
+          const maxLife = 1800 + Math.random() * 500;
           this.state.bloodStains.push({
             x: p.x + (Math.random() - 0.5) * 4,
             y: p.y + (Math.random() - 0.5) * 4,
             size: Math.max(2, p.size - 1),
             color: p.color,
             opacity: 0.95,
+            life: 0,
+            maxLife,
           });
         }
-        // Final impact splatter pool when droplet reaches end of flight
-        if (p.life >= p.maxLife - 1) {
+        // Impact splatter pool when droplet reaches end of flight
+        if (p.life >= p.maxLife - 1 && Math.random() < 0.6) {
+          const maxLife = 2000 + Math.random() * 500;
           this.state.bloodStains.push({
             x: p.x,
             y: p.y,
             size: Math.max(2, p.size),
             color: p.color,
             opacity: 0.95,
+            life: 0,
+            maxLife,
           });
         }
       }
@@ -989,12 +1201,32 @@ export class GameEngine {
       return p.life < p.maxLife;
     });
 
-    // Cull blood stains ONLY when they physically leave the screen viewport
+    // Blood splatter stains fade away after a couple of seconds (~2.0 - 2.5 seconds)
     const screenTopMargin = this.canvasHeight * 0.35 + 80;
     const screenBottomMargin = this.canvasHeight * 0.65 + 120;
     const screenSideMargin = this.canvasWidth * 0.5 + 100;
 
+    const safeDt = Math.max(1, Math.min(100, dt || 16));
+
     this.state.bloodStains = this.state.bloodStains.filter(stain => {
+      stain.life = (stain.life || 0) + safeDt;
+      const maxLife = stain.maxLife || 2200;
+
+      // Stay crisp/opaque on snow for initial impact (~0.8s), then smoothly fade out to 0
+      const solidDuration = Math.min(800, maxLife * 0.35);
+      if (stain.life <= solidDuration) {
+        stain.opacity = 0.95;
+      } else {
+        const fadeRatio = (stain.life - solidDuration) / Math.max(1, maxLife - solidDuration);
+        stain.opacity = Math.max(0, 0.95 * (1 - fadeRatio));
+      }
+
+      // Remove once completely faded away
+      if (stain.life >= maxLife || stain.opacity <= 0.01) {
+        return false;
+      }
+
+      // Also cull when moved out of screen viewport
       const relY = stain.y - this.state.skierY;
       const relX = Math.abs(stain.x - this.state.skierX);
       return relY >= -screenTopMargin && relY <= screenBottomMargin && relX <= screenSideMargin;
